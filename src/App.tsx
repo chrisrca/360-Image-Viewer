@@ -99,8 +99,8 @@ function Scene() {
                 vector.y = -(vector.y * heightHalf);
 
                 if (annotationRef.current) {
-                    annotationRef.current.style.top = `${vector.y - 40}px`;
-                    annotationRef.current.style.left = `${vector.x + 15}px`;
+                    annotationRef.current.style.top = `${vector.y - 80}px`;
+                    annotationRef.current.style.left = `${vector.x - 150 + 15}px`;
                 }
                 break;
             }

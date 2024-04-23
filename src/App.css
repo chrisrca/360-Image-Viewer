@@ -70,19 +70,6 @@ canvas {
   font-size: 12px;
   line-height: 1.2;
   transition: opacity .5s;
-  &::before {
-    position: absolute;
-    top: -30px;
-    left: -30px;
-    width: 30px;
-    height: 30px;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    font-size: 16px;
-    line-height: 30px;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.8);
-  }
 }
 
 #number {
