@@ -13,21 +13,26 @@ function Scene() {
     const [hover, setHover] = useState<boolean>(false);
     const [name, setName] = useState<string>("");
     const meshRef = useRef<Mesh>(null);
+    const [rotationSpeed, setRotationSpeed] = useState(0.0005);
     const annotationRef = useRef<HTMLDivElement>(null);
     const texture = useMemo(() => new TextureLoader().load(imageSrc), []);
 
     useFrame(() => {
         updateScreenPosition(camera, gl.domElement);
-        // This will rotate the sphere continuously
-        // meshRef.current!.rotation.y += 0.0005;
+        if (meshRef.current) {
+            meshRef.current.rotation.y += rotationSpeed;
+        }
+        if (hover) {
+            setRotationSpeed(speed => Math.max(0, speed - 0.00005));
+        } else {
+            setRotationSpeed(0.001);
+        }
     });
 
     useEffect(() => {
-        const handler = setTimeout(() => {
-            // Update hover state here if needed based on some condition
-        }, 100); // Adjust debounce time as needed
+        const handler = setTimeout(() => {}, 100);
         return () => clearTimeout(handler);
-    }, [hover]); // Dependencies can be adjusted based on actual use case
+    }, [hover]);
 
     const hotspots = [
         { uMin: 0.0204, uMax: 0.0735, vMin: 0.3242, vMax: 0.6049, name: "Christian Reynolds" },
@@ -44,14 +49,13 @@ function Scene() {
         { uMin: 0.9307, uMax: 0.9708, vMin: 0.3215, vMax: 0.5567, name: "Colin Williams" },
     ];
 
-    const R = 5; // Radius of the sphere
+    const R = 7; // Radius of the sphere
 
     const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
         const uv = event.uv;
         if (!uv) {
             return;
         }
-
         const isOverHotspot = hotspots.some(hotspot => {
             if (uv.x >= hotspot.uMin && uv.x <= hotspot.uMax &&
                 uv.y >= hotspot.vMin && uv.y <= hotspot.vMax) {
@@ -65,8 +69,8 @@ function Scene() {
     };
 
     function uvToVector3(u: number, v: number) {
-        const theta = u * 2 * Math.PI; // azimuthal angle
-        const phi = (0.9 - v) * Math.PI; // polar angle
+        const theta = u * 2 * Math.PI;
+        const phi = (0.9 - v) * Math.PI;
         const x = R * Math.sin(phi) * Math.cos(theta) * -1;
         const y = R * Math.cos(phi) * -1;
         const z = R * Math.sin(phi) * Math.sin(theta);
@@ -74,7 +78,7 @@ function Scene() {
     }
 
     const vectors = hotspots.map(hotspot => {
-        const u = (hotspot.uMin + hotspot.uMax) / 2; // Average u for center
+        const u = (hotspot.uMin + hotspot.uMax) / 2;
         const v = hotspot.vMin; // Top v
         const vector = uvToVector3(u, v);
         return { name: hotspot.name, vector };
@@ -85,7 +89,8 @@ function Scene() {
 
         for (let i = 0; i < vectors.length; i++) {
             if (vectors[i].name === name) {
-                const vector = new Vector3(vectors[i].vector.x, vectors[i].vector.y, vectors[i].vector.z); // Adjust this to match the position you want to track
+                let vector = new Vector3(vectors[i].vector.x, vectors[i].vector.y, vectors[i].vector.z); // Adjust this to match the position you want to track
+                vector.applyQuaternion(meshRef.current!.quaternion);
                 vector.project(camera);
 
                 const widthHalf = 0.5 * canvas.clientWidth;
@@ -111,7 +116,7 @@ function Scene() {
                 </div>}
             </Html>
             <mesh ref={meshRef} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
-                <sphereGeometry args={[5, 64, 64]}/>
+                <sphereGeometry args={[7, 64, 64]}/>
                 <meshBasicMaterial map={texture} side={THREE.BackSide}/>
             </mesh>
         </>
