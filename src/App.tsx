@@ -1,26 +1,27 @@
-import React, {useRef, useState, useEffect, useMemo} from 'react';
-import {Canvas, extend, ThreeEvent, useFrame} from '@react-three/fiber';
-import {OrbitControls, Html} from '@react-three/drei';
-import { TextureLoader, Mesh } from 'three';
-import { THREE } from "aframe";
+import React, {useRef, useMemo, useState, useEffect} from 'react';
+import { Canvas, extend, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html } from '@react-three/drei';
+import { TextureLoader, Mesh, Vector3, Camera } from 'three';
 import imageSrc from "./360image.png";
+import { THREE } from "aframe";
+import "./App.css";
 
 extend({ OrbitControls });
 
-function Scene(): JSX.Element {
-    const meshRef = useRef<Mesh>(null);
+function Scene() {
+    const { camera, gl } = useThree();
     const [hover, setHover] = useState<boolean>(false);
     const [name, setName] = useState<string>("");
+    const meshRef = useRef<Mesh>(null);
+    const annotationRef = useRef<HTMLDivElement>(null);
     const texture = useMemo(() => new TextureLoader().load(imageSrc), []);
 
     useFrame(() => {
-        if (meshRef.current) {
-            // This will rotate the sphere continuously
-            meshRef.current.rotation.y += 0.0005;
-        }
+        updateScreenPosition(camera, gl.domElement);
+        // This will rotate the sphere continuously
+        // meshRef.current!.rotation.y += 0.0005;
     });
 
-    // Debounce state update
     useEffect(() => {
         const handler = setTimeout(() => {
             // Update hover state here if needed based on some condition
@@ -43,10 +44,11 @@ function Scene(): JSX.Element {
         { uMin: 0.9307, uMax: 0.9708, vMin: 0.3215, vMax: 0.5567, name: "Colin Williams" },
     ];
 
+    const R = 5; // Radius of the sphere
+
     const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
         const uv = event.uv;
         if (!uv) {
-            console.log("no UV data");
             return;
         }
 
@@ -62,35 +64,63 @@ function Scene(): JSX.Element {
         setHover(isOverHotspot);
     };
 
+    function uvToVector3(u: number, v: number) {
+        const theta = u * 2 * Math.PI; // azimuthal angle
+        const phi = (0.9 - v) * Math.PI; // polar angle
+        const x = R * Math.sin(phi) * Math.cos(theta) * -1;
+        const y = R * Math.cos(phi) * -1;
+        const z = R * Math.sin(phi) * Math.sin(theta);
+        return { x, y, z };
+    }
+
+    const vectors = hotspots.map(hotspot => {
+        const u = (hotspot.uMin + hotspot.uMax) / 2; // Average u for center
+        const v = hotspot.vMin; // Top v
+        const vector = uvToVector3(u, v);
+        return { name: hotspot.name, vector };
+    });
+
+    function updateScreenPosition(camera: Camera, canvas: HTMLCanvasElement) {
+        if (!meshRef.current || !camera || !canvas) return;
+
+        for (let i = 0; i < vectors.length; i++) {
+            if (vectors[i].name === name) {
+                const vector = new Vector3(vectors[i].vector.x, vectors[i].vector.y, vectors[i].vector.z); // Adjust this to match the position you want to track
+                vector.project(camera);
+
+                const widthHalf = 0.5 * canvas.clientWidth;
+                const heightHalf = 0.5 * canvas.clientHeight;
+                vector.x = (vector.x * widthHalf);
+                vector.y = -(vector.y * heightHalf);
+
+                if (annotationRef.current) {
+                    annotationRef.current.style.top = `${vector.y - 40}px`;
+                    annotationRef.current.style.left = `${vector.x + 15}px`;
+                }
+                break;
+            }
+        }
+    }
+
     return (
         <>
             <Html>
-                {hover && <div style={{
-                    color: "white",
-                    pointerEvents: 'none',
-                    whiteSpace: 'nowrap',
-                    padding: '10px',
-                    background: 'rgba(0, 0, 0, 0.5)',
-                    borderRadius: '10px',
-                }}>{name}</div>}
+                {hover && <div ref={annotationRef} className="annotation">
+                    <p><strong>{name}</strong></p>
+                    <p>This is some filler text you can put information about people here!</p>
+                </div>}
             </Html>
-            <mesh
-                ref={meshRef}
-                onPointerMove={handlePointerMove}
-            >
-                <sphereGeometry args={[10, 64, 64]}/>
+            <mesh ref={meshRef} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
+                <sphereGeometry args={[5, 64, 64]}/>
                 <meshBasicMaterial map={texture} side={THREE.BackSide}/>
             </mesh>
         </>
     );
-};
+}
 
 const App = () => {
     return (
-        <Canvas
-            camera={{fov: 75, position: [0, 0, 5]}}
-            style={{height: '100vh', width: '100vw'}}
-        >
+        <Canvas camera={{ fov: 75, position: [0, 0, 5] }} style={{ height: '100vh', width: '100vw' }}>
             <OrbitControls enableZoom={false} minPolarAngle={1.4} maxPolarAngle={1.4}/>
             <Scene/>
         </Canvas>
